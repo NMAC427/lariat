@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from lxml import etree
 from lxml.etree import _Element
 
+from lariat import fm_error_codes
 from lariat.core.metadata import FMMetadata
 from lariat.errors import FileMakerError
 
@@ -48,11 +49,7 @@ class FMParser:
                 elif tag == "error":
                     code = e.attrib.get("code")
                     if code != "0":
-                        raise FileMakerError(
-                            f"Error Code = {code}; For a list of error codes, visit:\n"
-                            "https://support.claris.com/s/article/"
-                            "Error-codes-for-Custom-Web-Publishing-1503692934814"
-                        )
+                        raise FileMakerError(code)
 
             elif event == "start-ns":
                 # This is a hack to quickly remove the namespace prefix from the e.tag value

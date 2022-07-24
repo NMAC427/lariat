@@ -9,6 +9,7 @@ from typing_extensions import Self
 from lariat._typing import ModelT
 from lariat.core.query import FMQuery
 from lariat.core.server import FMServer
+from lariat.errors import FileMakerError
 from lariat.models.fields import Field
 from lariat.models.symbolic import FieldExpression, SortExpression
 
@@ -205,7 +206,13 @@ class QuerySet(Generic[ModelT]):
         )
 
         server = FMServer.default
-        return list(server.run_query_model(query, self.model))
+        try:
+            return list(server.run_query_model(query, self.model))
+        except FileMakerError as e:
+            # 401: No records match the request
+            if e.code == 401:
+                return []
+            raise e
 
     def first_or_none(self) -> ModelT | None:
         command = "-find" if self._q._filter else "-findall"
@@ -219,10 +226,15 @@ class QuerySet(Generic[ModelT]):
         )
 
         server = FMServer.default
-        result = server.run_query_model(query, self.model)
 
-        if result:
+        try:
+            result = server.run_query_model(query, self.model)
             return result[0]
+        except FileMakerError as e:
+            # 401: No records match the request
+            if e.code == 401:
+                return None
+            raise e
 
     # Chainable Operations
 
