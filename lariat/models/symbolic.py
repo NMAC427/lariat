@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, Literal
 
 from lariat._typing import T
 from lariat.models import fields
@@ -10,7 +10,18 @@ if TYPE_CHECKING:
 
 
 class FieldExpression(Generic[T]):
-    def __init__(self, lhs: Field[T], op: str, rhs: T):
+    OP_T = Literal["eq", "cn", "bw", "ew", "gt", "gte", "lt", "lte", "neq"]
+
+    def __init__(self, lhs: Field[T], op: OP_T, rhs: T):
+        if not isinstance(lhs, fields.Field):
+            raise TypeError(f"`lhs` must be a Field, not '{type(lhs).__name__}'")
+        if not isinstance(op, str):
+            raise TypeError(f"`op` must be a string, not '{type(op).__name__}'")
+        if isinstance(rhs, FieldExpression):
+            raise TypeError(f"Can't chain field expressions")
+        if isinstance(rhs, SField):
+            raise TypeError(f"Field expression can't contain two fields")
+
         self.lhs = lhs
         self.op = op
         self.rhs = rhs

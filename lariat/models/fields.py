@@ -13,15 +13,18 @@ if TYPE_CHECKING:
 
 
 class Field(Generic[T], ABC):
-    def __init__(self, name: str, not_empty=False, lenient=True):
+    def __init__(self, name: str, not_empty=False, lenient=True, calc=False):
         """
         :param name: The name of the field in the FileMaker layout.
         :param not_empty: If the value can be None or not.
         :param lenient: Bool specifying if type conversion should be lenient or strict.
+        :param calc: Bool specifying if the field is the result of a calculation
+            or not. Only fields with calc=False can be set.
         """
         self.name = name
         self.not_empty = not_empty
         self.lenient = lenient
+        self.calc = calc
 
         self.attname = None
 
@@ -46,6 +49,9 @@ class Field(Generic[T], ABC):
         return instance_state[self.attname]
 
     def __set__(self, instance: Model, value: T):
+        if self.calc:
+            raise AttributeError("Can't set field the value of a calculated field.")
+
         instance_state = instance.__dict__
 
         if value is None:
@@ -57,6 +63,10 @@ class Field(Generic[T], ABC):
             instance_state[self.attname] = None
         else:
             instance_state[self.attname] = self.to_python(value)
+
+    def force_set(self, instance: Model, value: T):
+        instance_state = instance.__dict__
+        instance_state[self.attname] = self.to_python(value)
 
     def __repr__(self):
         return f"<{type(self).__name__} '{self.name}'>"

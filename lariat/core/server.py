@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Iterator
+from typing import Type
 from urllib.parse import urlparse
 
 import requests
 
+from lariat._typing import ModelT
 from lariat.core.parser import FMParser, FMRecord
 from lariat.core.query import FMQuery
 
@@ -53,17 +54,17 @@ class FMServer:
 
     def get_db_names(self) -> list[str]:
         query = FMQuery("-dbnames")
-        result = self._run_query(query)
+        result = self.run_query(query)
         return [record.get_field("database_name") for record in result]
 
     def get_layout_names(self) -> list[str]:
         query = FMQuery("-layoutnames")
-        result = self._run_query(query)
+        result = self.run_query(query)
         return [record.get_field("layout_name") for record in result]
 
     # HELPERS
 
-    def _run_query(self, query) -> Iterator[FMRecord]:
+    def run_query(self, query: FMQuery) -> list[FMRecord]:
         query_str = query.build_query()
         request_url = self._base_request_url + "?" + query_str
 
@@ -72,25 +73,8 @@ class FMServer:
         )
 
         response.raise_for_status()
-        return self.parser.parse(response.raw)
+        result, metadata = self.parser.parse(response.raw)
+        return result
 
-    def _run_query_model(self, query, model: type) -> Iterator:
-        for record in self._run_query(query):
-            yield model._from_fm_record(record)
-
-
-def _number_caster(value) -> int | float | None:
-    # First try to cast to integer
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        pass
-
-    # Then try to cast to a float
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        pass
-
-    # Everything failed -> return NONE
-    return None
+    def run_query_model(self, query: FMQuery, model: Type[ModelT]) -> list[ModelT]:
+        return [model._from_fm_record(record) for record in self.run_query(query)]

@@ -5,8 +5,11 @@ from typing import Type
 
 from lariat._typing import ModelT
 from lariat.core.parser import FMRecord
+from lariat.core.server import FMServer
 from lariat.models.options import ModelOptions
-from lariat.models.query_set import QuerySet
+from lariat.models.query_builder import QuerySet, QueryBuilder
+
+ScriptT = tuple[str, str]
 
 
 def _has_contribute_to_class(value):
@@ -39,9 +42,7 @@ class ModelBase(type):
                 contributable_attrs[obj_name] = obj
             else:
                 new_attrs[obj_name] = obj
-        new_class = super().__new__(
-            cls, name, bases, new_attrs, **kwargs
-        )  # type: type[Model]
+        new_class: Type[Model] = super().__new__(cls, name, bases, new_attrs, **kwargs)  # type: ignore
 
         # meta
         meta = attr_meta or getattr(new_class, "Meta", None)
@@ -82,15 +83,22 @@ class Model(metaclass=ModelBase):
     def records(cls: Type[ModelT]) -> QuerySet[ModelT]:
         return QuerySet(cls)
 
-    def __init__(self, record_id=None, mod_id=None, **kwargs):
+    def __init__(self, *, record_id=None, mod_id=None, _from_fm_record=False, **kwargs):
         super().__init__()
         self.record_id = record_id
         self.mod_id = mod_id
 
         for name, value in kwargs.items():
-            print(name, value)
-            assert name in type(self).__dict__
-            setattr(self, name, value)
+            if name not in type(self).__dict__:
+                raise AttributeError(f"No such attribute '{name}'.")
+
+            if _from_fm_record:
+                # Ignores any type of setter protection or value checks if
+                # the value comes from FileMaker itself
+                field = type(self).__dict__[name]
+                field.force_set(self, value)
+            else:
+                setattr(self, name, value)
 
     def __repr__(self):
         return (
@@ -103,16 +111,64 @@ class Model(metaclass=ModelBase):
             + ")"
         )
 
-    def save(self):
-        pass
+    def save(
+        self,
+        script_after: ScriptT = None,
+        script_prefind: ScriptT = None,
+        script_presort: ScriptT = None,
+    ) -> None:
+        qb = QueryBuilder(self)
 
-    def delete(self):
-        self.records().delete(self)
+        if script_after is not None:
+            qb = qb.script("after", *script_after)
+        if script_prefind is not None:
+            qb = qb.script("prefind", *script_prefind)
+        if script_presort is not None:
+            qb = qb.script("presort", *script_presort)
+
+        if self.record_id is None:
+            query = qb.build_query("-new", scripts=True)
+        else:
+            query = qb.build_query("-edit", scripts=True)
+            query.add_param("-recid", self.record_id)
+
+        for name, value in self._to_fm_dict().items():
+            if value is not None:
+                query.add_field_param(name, value)
+
+        server = FMServer.default
+        result = server.run_query_model(query, type(self))[0]
+        self.__dict__ = result.__dict__
+
+    def delete(
+        self,
+        script_after: ScriptT = None,
+        script_prefind: ScriptT = None,
+        script_presort: ScriptT = None,
+    ) -> None:
+        qb = QueryBuilder(self)
+
+        if script_after is not None:
+            qb = qb.script("after", *script_after)
+        if script_prefind is not None:
+            qb = qb.script("prefind", *script_prefind)
+        if script_presort is not None:
+            qb = qb.script("presort", *script_presort)
+
+        query = qb.build_query("-delete", scripts=True)
+
+        recid = self.record_id
+        assert recid is not None
+        query.add_param("-recid", recid)
+
+        server = FMServer.default
+        server.run_query(query)
 
     def _to_fm_dict(self):
         fm_dict = dict()
         for field in self._meta.fields:
-            fm_dict[field.name] = getattr(self, field.attname)
+            if not field.calc:
+                fm_dict[field.name] = getattr(self, field.attname)
 
         return fm_dict
 
@@ -121,6 +177,7 @@ class Model(metaclass=ModelBase):
         kwargs = {
             "record_id": record.record_id,
             "mod_id": record.mod_id,
+            "_from_fm_record": True,
         }
 
         for name, value in record.raw_fields:

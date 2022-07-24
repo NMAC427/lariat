@@ -12,3 +12,9 @@ class MissingParamError(Exception):
 
 class XMLParserError(Exception):
     pass
+
+
+class FileMakerError(Exception):
+    """
+    Raw error raised by FileMaker
+    """

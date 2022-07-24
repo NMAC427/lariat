@@ -29,13 +29,35 @@ class FMQuery:
 
     _commands = {
         "-dbnames": CommandDescription(),
+        "-delete": CommandDescription(
+            required=_c_db_lay | {"-recid"},
+            optional=_c_script,
+        ),
+        "-edit": CommandDescription(
+            required=_c_db_lay | {"-recid"},
+            optional=_c_script | {"-modid"},
+            field_names=True,
+        ),
         "-find": CommandDescription(
             required=_c_db_lay,
             optional=_c_layr | _c_script | _c_find,
             field_names=True,
         ),
+        "-findany": CommandDescription(
+            required=_c_db_lay,
+            optional=_c_layr | _c_script,
+        ),
+        "-findall": CommandDescription(
+            required=_c_db_lay,
+            optional=_c_layr | _c_script | _c_find,
+        ),
         "-layoutnames": CommandDescription(
             required={"-db"},
+        ),
+        "-new": CommandDescription(
+            required=_c_db_lay,
+            optional=_c_script,
+            field_names=True,
         ),
     }
 

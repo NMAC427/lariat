@@ -28,6 +28,11 @@ class FMMetadata:
         self.fields = {}
         self.related_sets = {}
 
+    def __repr__(self):
+        return (
+            f"<FMMetadata fields={self.fields!r}, related_sets={self.related_sets!r}>"
+        )
+
     def parse(self, element: _Element):
         ns_len = len(self.namespace) + 2
         for child in element:

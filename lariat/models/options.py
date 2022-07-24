@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lariat.models.model import Model
+    from lariat.models.fields import Field
+
 
 class ModelOptions:
     # Options that the user can specify
@@ -9,11 +15,14 @@ class ModelOptions:
     }
 
     def __init__(self, meta):
-        self.db = None
-        self.layout = None
-        self.fields = []
+        self.db: str | None = None
+        self.layout: str | None = None
+
+        self.fields: list[Field] = []
+        self._field_names: set[str] = set()
 
         self.meta = meta
+        self.model: Model = None  # type: ignore
 
     def contribute_to_class(self, cls, name):
         cls._meta = self
@@ -29,5 +38,10 @@ class ModelOptions:
                     raise TypeError(f"'class Meta' got an invalid attribute {name}")
                 setattr(self, name, value)
 
-    def add_field(self, field):
+    def add_field(self, field: Field):
+        if field.name.lower() in self._field_names:
+            raise ValueError(
+                f"Duplicate field name: '{field.name}' (attribute '{field.attname}')"
+            )
+        self._field_names.add(field.name.lower())
         self.fields.append(field)

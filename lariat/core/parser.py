@@ -6,13 +6,14 @@ from lxml import etree
 from lxml.etree import _Element
 
 from lariat.core.metadata import FMMetadata
+from lariat.errors import FileMakerError
 
 
 @dataclass
 class FMRecord:
     record_id: int
     mod_id: int
-    raw_fields: list[tuple[str, str | list["FMRecord"]]]  # fields / related sets
+    raw_fields: list[tuple[str, str | list[FMRecord]]]  # fields / related sets
 
     def get_field(self, name, default=None):
         """
@@ -25,29 +26,40 @@ class FMRecord:
 
 
 class FMParser:
-    def parse(self, stream):
+    def parse(self, stream) -> tuple[list[FMRecord], FMMetadata]:
         tree = etree.iterparse(stream, events=("start-ns", "end"))
 
         namespace = ""
         namespace_len = 0
+
+        records = []
         metadata = None
 
         for event, e in tree:
             if event == "end":
                 tag = e.tag[namespace_len:]
 
-                # TODO: Also parse errors
                 # Sort records by how common they are.
                 if tag == "record":
-                    yield self._parse_record(e, namespace_len)
+                    records.append(self._parse_record(e, namespace_len))
                 elif tag == "metadata":
                     metadata = FMMetadata(namespace)
                     metadata.parse(e)
+                elif tag == "error":
+                    code = e.attrib.get("code")
+                    if code != "0":
+                        raise FileMakerError(
+                            f"Error Code = {code}; For a list of error codes, visit:\n"
+                            "https://support.claris.com/s/article/"
+                            "Error-codes-for-Custom-Web-Publishing-1503692934814"
+                        )
 
             elif event == "start-ns":
                 # This is a hack to quickly remove the namespace prefix from the e.tag value
                 namespace = e[1]
                 namespace_len = len(namespace) + 2
+
+        return records, metadata
 
     def _parse_record(self, element: _Element, ns_len: int) -> FMRecord:
         record_id = element.get("record-id")
