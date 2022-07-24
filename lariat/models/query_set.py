@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+from typing import Generic
+
+from typing_extensions import Self
+
+from lariat._typing import ModelT
 from lariat.core.query import FMQuery
 from lariat.core.server import FMServer
-from lariat.models.fields import SymbolicField, SymbolicFieldExpression, Field
+from lariat.models.fields import Field
+from lariat.models.symbolic import FieldExpression, SortExpression
 
 
-class QuerySet:
+class QuerySet(Generic[ModelT]):
     """Represent a lazy database lookup for a set of objects"""
 
-    def __init__(self, model):
+    def __init__(self, model: ModelT):
         self.model = model
 
         # Query Params
@@ -18,7 +24,7 @@ class QuerySet:
         self._skip = None
         self._scripts = dict()
 
-    def _clone(self) -> "QuerySet":
+    def _clone(self) -> Self:
         # TODO: Maybe not clone everything every time...
         c = self.__class__(model=self.model)
         c._filter = self._filter.copy()
@@ -30,10 +36,10 @@ class QuerySet:
 
     # Perform queries on database
 
-    def get(self):
+    def get(self) -> ModelT:
         pass
 
-    def all(self):
+    def all(self) -> list[ModelT]:
         # Construct Query
         command = "-find" if self._filter else "-findall"
         query = self._base_query(command)
@@ -81,7 +87,7 @@ class QuerySet:
 
     # Chainable Operations
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args, **kwargs) -> Self:
         """
         fieldname_op = value
 
@@ -102,11 +108,11 @@ class QuerySet:
 
         # Symbolic Expressions
         for expr in args:
-            if not isinstance(expr, SymbolicFieldExpression):
+            if not isinstance(expr, FieldExpression):
                 raise ValueError()
             if not isinstance(expr.lhs, Field):
                 raise ValueError()
-            if isinstance(expr.rhs, (Field, SymbolicFieldExpression)):
+            if isinstance(expr.rhs, (Field, FieldExpression)):
                 raise ValueError()
 
             field_name = expr.lhs.name
@@ -132,17 +138,15 @@ class QuerySet:
         c._filter.update(filter)
         return c
 
-    def sort(self, *args):
+    def sort(self, *args: SortExpression) -> Self:
         """
         sort('fieldname', '-fieldname', ('fieldname', 'value list'))
               Ascending    Descending                  Value List
         """
         sort = []
         for field in args:
-            if isinstance(field, SymbolicField):
-                name = field.field.name
-                order = field._sort_by or ("descend" if field._neg else "ascend")
-                sort.append((name, order))
+            if isinstance(field, SortExpression):
+                sort.append((field.field.name, field.sort_method))
             elif isinstance(field, str):
                 name, order = (
                     (field[1:], "descend")
@@ -162,23 +166,23 @@ class QuerySet:
         assert len(c._sort) <= 9  # TODO: Better error message
         return c
 
-    def max(self, max: int):
+    def max(self, max: int) -> Self:
         c = self._clone()
         c._max = max
         return c
 
-    def skip(self, skip: int):
+    def skip(self, skip: int) -> Self:
         c = self._clone()
         c._skip = skip
         return c
 
-    def script_after(self, name: str, param: str = None):
+    def script_after(self, name: str, param: str = None) -> Self:
         return self._script("after", name, param)
 
-    def script_prefind(self, name: str, param: str = None):
+    def script_prefind(self, name: str, param: str = None) -> Self:
         return self._script("prefind", name, param)
 
-    def script_presort(self, name: str, param: str = None):
+    def script_presort(self, name: str, param: str = None) -> Self:
         return self._script("presort", name, param)
 
     # TODO: Related Set
@@ -188,7 +192,7 @@ class QuerySet:
     def _map_to_field(self, attr: str) -> str:
         return self.model._attr_mapping[attr]
 
-    def _script(self, type: str, name: str, param):
+    def _script(self, type: str, name: str, param) -> Self:
         c = self._clone()
         c._scripts[type] = (name, param)
         return c

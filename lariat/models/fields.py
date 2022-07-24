@@ -1,160 +1,80 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Generic
 
+from lariat._typing import T
 from lariat.errors import FieldError, ConversionError
+from lariat.models import symbolic as sym
 
 if TYPE_CHECKING:
     from lariat.models import Model
 
 
-class SymbolicField:
-    """Interface to reference and manipulate a column symbolically"""
-
-    # TODO: Allow refering to a field using this symbolic field
-    #       instead of strings / kwargs.
-    #
-    # eg:
-    # Model.filter(
-    #     Model.field_name >= 15
-    # ).sort(
-    #     -Model.field_name
-    # )
-
-    def __init__(
-        self,
-        field: Field,
-        _neg: bool = False,
-        _sort_by=None,
-    ):
-        self.field = field
-        self._neg = _neg
-        self._sort_by = _sort_by
-
-    def _copy(self, **kwargs):
-        return self.__class__(**{**self.__dict__, **kwargs})
-
-    # Sorting
-
-    def __neg__(self):
-        """Negate to specify descending order."""
-        return self._copy(_neg=not self._neg)
-
-    def sort_by(self, value_list):
-        """Specify a value list to sort by."""
-        return self._copy(_sort_by=value_list)
-
-    # Filtering
-
-    def __eq__(self, other):
-        return SymbolicFieldExpression(self.field, "eq", other)
-
-    def __ne__(self, other):
-        return SymbolicFieldExpression(self.field, "neq", other)
-
-    def __gt__(self, other):
-        return SymbolicFieldExpression(self.field, "gt", other)
-
-    def __ge__(self, other):
-        return SymbolicFieldExpression(self.field, "gte", other)
-
-    def __lt__(self, other):
-        return SymbolicFieldExpression(self.field, "lt", other)
-
-    def __le__(self, other):
-        return SymbolicFieldExpression(self.field, "lte", other)
-
-    def contains(self, other):
-        return SymbolicFieldExpression(self.field, "cn", other)
-
-    def begins_with(self, other):
-        return SymbolicFieldExpression(self.field, "bw", other)
-
-    def ends_with(self, other):
-        return SymbolicFieldExpression(self.field, "ew", other)
-
-
-class SymbolicFieldExpression:
-    def __init__(self, lhs, op: str, rhs):
-        self.lhs = lhs
-        self.op = op
-        self.rhs = rhs
-
-
-class FieldAttribute:
-    """
-    The getter / setter that each defined field gets replaced with in a model instance.
-    """
-
-    def __init__(self, field: Field):
-        self.field = field
-
-    def __get__(self, instance: Model, owner=None) -> Any:
-        if instance is None:
-            # If __get__ gets called on the class instead of an instance.
-            return SymbolicField(self.field)
-
-        instance_state = instance.__dict__
-        field_name = self.field.attname
-
-        if field_name not in instance_state:
-            if self.field.not_empty:
-                raise ValueError(
-                    f"Value for field '{field_name}' not set (can't be empty)."
-                )
-            return None
-
-        return instance_state[field_name]
-
-    def __set__(self, instance, value):
-        instance_state = instance.__dict__
-        field_name = self.field.attname
-
-        # Handle None
-        if value is None:
-            if self.field.not_empty:
-                raise FieldError(
-                    f"Field '{field_name}' is non empty. It's value can't be set to"
-                    " None."
-                )
-            instance_state[field_name] = None
-            return
-
-        # Convert to python value and then store in the instance
-        python_value = self.field.to_python(value)
-        instance_state[field_name] = python_value
-
-
-# Fields
-
-
-class Field:
-    def __init__(self, name: str, not_empty: bool = False, lenient: bool = True):
+class Field(Generic[T], ABC):
+    def __init__(self, name: str, not_empty=False, lenient=True):
         """
         :param name: The name of the field in the FileMaker layout.
-        :param not_empty: It the value can be None or not.
-        :param lenient: Bool specifying if type conversion should be lenient tor strict.
+        :param not_empty: If the value can be None or not.
+        :param lenient: Bool specifying if type conversion should be lenient or strict.
         """
         self.name = name
         self.not_empty = not_empty
         self.lenient = lenient
 
+        self.attname = None
+
     def contribute_to_class(self, cls, name):
         self.attname = name
-        setattr(cls, name, FieldAttribute(self))
+        setattr(cls, name, self)
         cls._meta.add_field(self)
 
-    def to_python(self, value):
+    def __get__(self, instance: Model, owner=None):
+        if instance is None:
+            # If __get__ gets called on the class instead of an instance.
+            return self.symbolic()
+
+        instance_state = instance.__dict__
+        if self.attname not in instance_state:
+            if self.not_empty:
+                raise ValueError(
+                    f"Value for field '{self.attname}' not set (can't be empty)."
+                )
+            return None
+
+        return instance_state[self.attname]
+
+    def __set__(self, instance: Model, value: T):
+        instance_state = instance.__dict__
+
+        if value is None:
+            if self.not_empty:
+                raise FieldError(
+                    f"Field '{self.attname}' is non empty. It's value can't be set to"
+                    " None."
+                )
+            instance_state[self.attname] = None
+        else:
+            instance_state[self.attname] = self.to_python(value)
+
+    def __repr__(self):
+        return f"<{type(self).__name__} '{self.name}'>"
+
+    @abstractmethod
+    def to_python(self, value) -> T:
         """
         Convert the input value to the correct Python data type for this
         field. If this conversion fails, a lariat.exception.ConversionError
         should get raised.
         """
-        return value
+
+    @abstractmethod
+    def symbolic(self) -> sym.SField[T]:
+        ...
 
 
-class IntField(Field):
+class IntField(Field[int]):
     regex = re.compile("[^0-9.]")
 
     def to_python(self, value):
@@ -175,8 +95,14 @@ class IntField(Field):
                 raise ConversionError(e)
             return None
 
+    def symbolic(self):
+        return sym.IntSField(self)
 
-class FloatField(Field):
+    def __get__(self, instance, owner=None) -> int | sym.IntSField:
+        return super().__get__(instance, owner)
+
+
+class FloatField(Field[float]):
     regex = re.compile("[^0-9.]")
 
     def to_python(self, value: str):
@@ -196,15 +122,27 @@ class FloatField(Field):
                 raise ConversionError(e)
             return None
 
+    def symbolic(self):
+        return sym.FloatSField(self)
 
-class StringField(Field):
+    def __get__(self, instance, owner=None) -> float | sym.FloatSField:
+        return super().__get__(instance, owner)
+
+
+class StringField(Field[str]):
     def to_python(self, value):
         if isinstance(value, str):
             return value
         return str(value)
 
+    def symbolic(self):
+        return sym.StringSField(self)
 
-class BoolField(Field):
+    def __get__(self, instance, owner=None) -> str | sym.StringSField:
+        return super().__get__(instance, owner)
+
+
+class BoolField(Field[bool]):
     def to_python(self, value):
         if value in (True, False):
             # 1/0 are equal to True/False. bool() converts former to latter.
@@ -216,8 +154,14 @@ class BoolField(Field):
         if self.not_empty:
             raise ConversionError(f"Couldn't convert value {value!r} to a boolean.")
 
+    def symbolic(self):
+        return sym.BoolSField(self)
 
-class ListField(Field):
+    def __get__(self, instance, owner=None) -> bool | sym.BoolSField:
+        return super().__get__(instance, owner)
+
+
+class _ListField(Field):
     # TODO: Implement in the future. This is not as important.
     # API INTERFACE:  ListField(IntField('Price{}'), IntField('Bestellungen{}'), StringField('MenuName{}'))
     def __new__(cls, *args, **kwargs):

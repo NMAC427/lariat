@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from typing import Type
 
+from lariat._typing import ModelT
 from lariat.core.parser import FMRecord
 from lariat.models.options import ModelOptions
 from lariat.models.query_set import QuerySet
@@ -60,8 +62,6 @@ class ModelBase(type):
             {field.attname: field.name.lower() for field in new_class._meta.fields},
         )
 
-        new_class.add_to_class("records", QuerySet(model=new_class))
-
         return new_class
 
     def add_to_class(cls, name, value):
@@ -78,17 +78,18 @@ class Model(metaclass=ModelBase):
     _attr_mapping: dict[str, str]  # attribute name -> FMS field name
 
     # Query interface
-    records: QuerySet
+    @classmethod
+    def records(cls: Type[ModelT]) -> QuerySet[ModelT]:
+        return QuerySet(cls)
 
     def __init__(self, record_id=None, mod_id=None, **kwargs):
         super().__init__()
-
         self.record_id = record_id
         self.mod_id = mod_id
 
         for name, value in kwargs.items():
             print(name, value)
-            assert name in self.__class__.__dict__
+            assert name in type(self).__dict__
             setattr(self, name, value)
 
     def __repr__(self):
@@ -106,7 +107,7 @@ class Model(metaclass=ModelBase):
         pass
 
     def delete(self):
-        self.records.delete(self)
+        self.records().delete(self)
 
     def _to_fm_dict(self):
         fm_dict = dict()

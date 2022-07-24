@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from lxml import etree
 from lxml.etree import _Element
-from dataclasses import dataclass
 
 from lariat.core.metadata import FMMetadata
 
