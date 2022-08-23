@@ -7,7 +7,7 @@ from lariat._typing import ModelT
 from lariat.core.parser import FMRecord
 from lariat.core.server import FMServer
 from lariat.models.options import ModelOptions
-from lariat.models.query_builder import QuerySet, QueryBuilder
+from lariat.models.query_builder import QueryBuilder, QuerySet
 
 ScriptT = tuple[str, str]
 
@@ -42,7 +42,7 @@ class ModelBase(type):
                 contributable_attrs[obj_name] = obj
             else:
                 new_attrs[obj_name] = obj
-        new_class: Type[Model] = super().__new__(cls, name, bases, new_attrs, **kwargs)  # type: ignore
+        new_class: type[Model] = super().__new__(cls, name, bases, new_attrs, **kwargs)  # type: ignore
 
         # meta
         meta = attr_meta or getattr(new_class, "Meta", None)
@@ -80,7 +80,7 @@ class Model(metaclass=ModelBase):
 
     # Query interface
     @classmethod
-    def records(cls: Type[ModelT]) -> QuerySet[ModelT]:
+    def records(cls: type[ModelT]) -> QuerySet[ModelT]:
         return QuerySet(cls)
 
     def __init__(self, *, record_id=None, mod_id=None, _from_fm_record=False, **kwargs):

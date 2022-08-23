@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic
 
 from lariat._typing import T
-from lariat.errors import FieldError, ConversionError
+from lariat.errors import ConversionError, FieldError
 from lariat.models import symbolic as sym
 
 if TYPE_CHECKING:

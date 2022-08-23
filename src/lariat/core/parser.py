@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import io
 from dataclasses import dataclass
 
 from lxml import etree
 from lxml.etree import _Element
 
-from lariat import fm_error_codes
 from lariat.core.metadata import FMMetadata
+from lariat.core.util.io import GeneratorBytestIO
 from lariat.errors import FileMakerError
 
 
@@ -28,6 +29,7 @@ class FMRecord:
 
 class FMParser:
     def parse(self, stream) -> tuple[list[FMRecord], FMMetadata]:
+        stream = GeneratorBytestIO(stream)
         tree = etree.iterparse(stream, events=("start-ns", "end"))
 
         namespace = ""

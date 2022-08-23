@@ -1,7 +1,2 @@
+from lariat.models.fields import BoolField, FloatField, IntField, StringField
 from lariat.models.model import Model
-from lariat.models.fields import (
-    IntField,
-    FloatField,
-    StringField,
-    BoolField,
-)

@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lariat.models.model import Model
     from lariat.models.fields import Field
+    from lariat.models.model import Model
 
 
 class ModelOptions:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Type
 from urllib.parse import urlparse
 
-import requests
+import httpx
 
 from lariat._typing import ModelT
 from lariat.core.parser import FMParser, FMRecord
@@ -13,19 +13,13 @@ from lariat.core.query import FMQuery
 class FMServer:
     default: FMServer = None
 
-    request_kwargs = {
-        "stream": True,
-        "verify": True,
-        "timeout": 25,
-    }
-
     def __init__(
         self,
         url: str = None,
         username: str = None,
         password: str = None,
     ):
-        # Parse URL
+        # Networking
         url = urlparse(url)
         self._url = {
             "scheme": url.scheme or "http",
@@ -38,9 +32,14 @@ class FMServer:
             **self._url
         )
 
-        # Config
         self.username = username
         self.password = password
+
+        self.httpx_client = httpx.Client(
+            auth=(self.username, self.password),
+            verify=True,
+            timeout=10,
+        )
 
         # Init parser
         self.parser = FMParser()
@@ -65,16 +64,11 @@ class FMServer:
     # HELPERS
 
     def run_query(self, query: FMQuery) -> list[FMRecord]:
-        query_str = query.build_query()
-        request_url = self._base_request_url + "?" + query_str
+        url = self._base_request_url + "?" + query.build_query()
+        with self.httpx_client.stream("GET", url) as response:
+            response.raise_for_status()
+            result, metadata = self.parser.parse(response.iter_raw())
+            return result
 
-        response = requests.get(
-            url=request_url, auth=(self.username, self.password), **self.request_kwargs
-        )
-
-        response.raise_for_status()
-        result, metadata = self.parser.parse(response.raw)
-        return result
-
-    def run_query_model(self, query: FMQuery, model: Type[ModelT]) -> list[ModelT]:
+    def run_query_model(self, query: FMQuery, model: type[ModelT]) -> list[ModelT]:
         return [model._from_fm_record(record) for record in self.run_query(query)]

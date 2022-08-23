@@ -20,7 +20,7 @@ class QueryBuilder(Generic[ModelT]):
     Helper class to construct queries.
     """
 
-    def __init__(self, model: ModelT | Type[ModelT]):
+    def __init__(self, model: ModelT | type[ModelT]):
         self.model = model
 
         # Query Params
@@ -183,7 +183,7 @@ class QueryBuilder(Generic[ModelT]):
 class QuerySet(Generic[ModelT]):
     """Represent a lazy database lookup for a set of objects"""
 
-    def __init__(self, model: Type[ModelT]):
+    def __init__(self, model: type[ModelT]):
         self.model = model
         self._q = QueryBuilder(model)
 
