@@ -121,9 +121,8 @@ class FloatField(Field[float]):
         except (TypeError, ValueError) as e:
             # Try to convert lenient
             if self.lenient:
-                value = self.regex.sub("", value)
-
                 try:
+                    value = self.regex.sub("", value)
                     return float(value)
                 except (TypeError, ValueError):
                     pass
@@ -171,8 +170,52 @@ class BoolField(Field[bool]):
         return super().__get__(instance, owner)
 
 
-class _ListField(Field):
-    # TODO: Implement in the future. This is not as important.
-    # API INTERFACE:  ListField(IntField('Price{}'), IntField('Bestellungen{}'), StringField('MenuName{}'))
-    def __new__(cls, *args, **kwargs):
-        raise NotImplementedError
+class ListField(Generic[T]):
+    def __init__(
+        self, field_name: str, values, field_type: type[Field[T]], field_kwargs=None
+    ):
+        if field_kwargs is None:
+            field_kwargs = {}
+
+        self.fields = []
+        for value in values:
+            field = field_type(field_name % value, **field_kwargs)
+            self.fields.append(field)
+
+        self.attname = None
+
+    def contribute_to_class(self, cls, name):
+        self.attname = name
+
+        setattr(cls, name, self)
+        cls._meta.add_list_field(self)
+
+    def __get__(self, instance: Model, owner=None):
+        return ListFieldGetSet(self, instance)
+
+    def __set__(self, instance: Model, value):
+        raise AttributeError("Can't set list field.")
+
+    def force_set(self, instance: Model, value):
+        raise AttributeError("Can't set list field.")
+
+
+class ListFieldGetSet(Generic[T]):
+    def __init__(self, field: ListField[T], instance: Model):
+        self._field = field
+        self._instance = instance
+
+    def __repr__(self):
+        return repr(list(self))
+
+    def __iter__(self):
+        for field in self._field.fields:
+            yield field.__get__(self._instance)
+
+    def __getitem__(self, item) -> sym.SField[T]:
+        field = self._field.fields[item]
+        return field.__get__(self._instance)
+
+    def __setitem__(self, key, value):
+        field = self._field.fields[key]
+        return field.__set__(self._instance, value)

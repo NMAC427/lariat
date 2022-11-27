@@ -101,12 +101,14 @@ class Model(metaclass=ModelBase):
                 setattr(self, name, value)
 
     def __repr__(self):
+        fields = self._meta.fields + self._meta.list_fields
         return (
             self.__class__.__qualname__
             + "("
             + ", ".join(
                 f"{f.attname}={getattr(self, f.attname, None)!r}"
-                for f in self._meta.fields
+                for f in fields
+                if not f.attname.startswith("__")
             )
             + ")"
         )

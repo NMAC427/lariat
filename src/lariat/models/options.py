@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lariat.models.fields import Field
+    from lariat.models.fields import Field, ListField
     from lariat.models.model import Model
 
 
@@ -19,6 +19,7 @@ class ModelOptions:
         self.layout: str | None = None
 
         self.fields: list[Field] = []
+        self.list_fields: list[ListField] = []
         self._field_names: set[str] = set()
 
         self.meta = meta
@@ -45,3 +46,9 @@ class ModelOptions:
             )
         self._field_names.add(field.name.lower())
         self.fields.append(field)
+
+    def add_list_field(self, list_field: ListField):
+        self.list_fields.append(list_field)
+
+        for field in list_field.fields:
+            field.contribute_to_class(self.model, f"__list_field_{field.name}")
