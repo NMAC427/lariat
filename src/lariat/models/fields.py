@@ -51,9 +51,10 @@ class Field(Generic[T], ABC):
     def __set__(self, instance: Model, value: T):
         if self.calc:
             raise AttributeError("Can't set field the value of a calculated field.")
+        self.force_set(instance, value)
 
+    def force_set(self, instance: Model, value: T):
         instance_state = instance.__dict__
-
         if value is None:
             if self.not_empty:
                 raise FieldError(
@@ -63,10 +64,6 @@ class Field(Generic[T], ABC):
             instance_state[self.attname] = None
         else:
             instance_state[self.attname] = self.to_python(value)
-
-    def force_set(self, instance: Model, value: T):
-        instance_state = instance.__dict__
-        instance_state[self.attname] = self.to_python(value)
 
     def __repr__(self):
         return f"<{type(self).__name__} '{self.name}'>"

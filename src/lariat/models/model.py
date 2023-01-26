@@ -77,6 +77,8 @@ class Model(metaclass=ModelBase):
     _meta: ModelOptions
     _field_mapping: dict[str, str]  # FMS field name -> attribute name
     _attr_mapping: dict[str, str]  # attribute name -> FMS field name
+    record_id: int | None
+    mod_id: int | None
 
     # Query interface
     @classmethod
@@ -165,6 +167,11 @@ class Model(metaclass=ModelBase):
 
         server = FMServer.default
         server.run_query(query)
+
+    def as_dict(self):
+        return {
+            field.attname: getattr(self, field.attname) for field in self._meta.fields
+        }
 
     def _to_fm_dict(self):
         fm_dict = dict()
