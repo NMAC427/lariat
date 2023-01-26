@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic
@@ -164,6 +165,54 @@ class BoolField(Field[bool]):
         return sym.BoolSField(self)
 
     def __get__(self, instance, owner=None) -> bool | sym.BoolSField:
+        return super().__get__(instance, owner)
+
+
+class DateTimeField(Field[datetime.datetime]):
+    PATTERN = "%m/%d/%Y %H:%M:%S"
+
+    def to_python(self, value):
+        date = datetime.datetime.strptime(value, self.PATTERN)
+        if date is None and self.not_empty:
+            raise ConversionError(f"Couldn't convert {value} to a datetime.")
+        return date
+
+    def symbolic(self):
+        return sym.DateTimeSField(self)
+
+    def __get__(self, instance, owner=None) -> datetime.datetime | sym.DateTimeSField:
+        return super().__get__(instance, owner)
+
+
+class DateField(Field[datetime.date]):
+    PATTERN = "%m/%d/%Y"
+
+    def to_python(self, value):
+        date = datetime.datetime.strptime(value, self.PATTERN)
+        if date is None and self.not_empty:
+            raise ConversionError(f"Couldn't convert {value} to a date.")
+        return date.date()
+
+    def symbolic(self):
+        return sym.DateSField(self)
+
+    def __get__(self, instance, owner=None) -> datetime.date | sym.DateSField:
+        return super().__get__(instance, owner)
+
+
+class TimeField(Field[datetime.time]):
+    PATTERN = "%H:%M:%S"
+
+    def to_python(self, value):
+        time = datetime.datetime.strptime(value, self.PATTERN)
+        if time is None and self.not_empty:
+            raise ConversionError(f"Couldn't convert {value} to a time.")
+        return time
+
+    def symbolic(self):
+        return sym.TimeSField(self)
+
+    def __get__(self, instance, owner=None) -> datetime.time | sym.TimeSField:
         return super().__get__(instance, owner)
 
 

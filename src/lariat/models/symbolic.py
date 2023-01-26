@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from typing import TYPE_CHECKING, Generic, Literal
 
 from lariat._typing import T
@@ -110,3 +111,15 @@ class StringSField(SField[str]):
 
     def endswith(self, value: T):
         return FieldExpression(self._field, "ew", value)
+
+
+class DateTimeSField(SField[datetime.datetime]):
+    ...
+
+
+class DateSField(SField[datetime.date]):
+    ...
+
+
+class TimeSField(SField[datetime.time]):
+    ...
