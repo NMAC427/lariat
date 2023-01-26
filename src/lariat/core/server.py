@@ -24,7 +24,7 @@ class FMServer:
         self._url = {
             "scheme": url.scheme or "http",
             "hostname": url.hostname,
-            "port": url.port or (433 if (url.scheme or "http") == "https" else 80),
+            "port": url.port or (443 if (url.scheme or "http") == "https" else 80),
             "path": url.path or "/fmi/xml/fmresultset.xml",
         }
 
