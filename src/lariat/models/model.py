@@ -174,12 +174,11 @@ class Model(metaclass=ModelBase):
         }
 
     def _to_fm_dict(self):
-        fm_dict = dict()
-        for field in self._meta.fields:
-            if not field.calc:
-                fm_dict[field.name] = getattr(self, field.attname)
-
-        return fm_dict
+        return {
+            field.name: getattr(self, field.attname)
+            for field in self._meta.fields
+            if not field.calc
+        }
 
     @classmethod
     def _from_fm_record(cls, record: FMRecord):

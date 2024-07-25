@@ -19,7 +19,7 @@ class FMRecord:
 
     def get_field(self, name, default=None):
         """
-        WARNING: This is not efficient if there are more than one or two fields.
+        WARNING: This is not efficient if there are many fields.
         """
         for field_name, value in self.raw_fields:
             if field_name == name:
