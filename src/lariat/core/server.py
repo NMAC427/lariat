@@ -59,8 +59,9 @@ class FMServer:
         result = self.run_query(query)
         return [record.get_field("database_name") for record in result]
 
-    def get_layout_names(self) -> list[str]:
+    def get_layout_names(self, db: str) -> list[str]:
         query = FMQuery("-layoutnames")
+        query.add_param("-db", db)
         result = self.run_query(query)
         return [record.get_field("layout_name") for record in result]
 
