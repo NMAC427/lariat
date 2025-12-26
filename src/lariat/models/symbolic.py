@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import decimal
 from typing import TYPE_CHECKING, Generic, Literal
 
 from lariat._typing import T
@@ -90,16 +91,16 @@ class SField(Generic[T]):
         return FieldExpression(self._field, "lte", other)
 
 
-class IntSField(SField[int]):
-    ...
+class IntSField(SField[int]): ...
 
 
-class FloatSField(SField[float]):
-    ...
+class FloatSField(SField[float]): ...
 
 
-class BoolSField(SField[bool]):
-    ...
+class DecimalSField(SField[decimal.Decimal]): ...
+
+
+class BoolSField(SField[bool]): ...
 
 
 class StringSField(SField[str]):
@@ -113,13 +114,10 @@ class StringSField(SField[str]):
         return FieldExpression(self._field, "ew", value)
 
 
-class DateTimeSField(SField[datetime.datetime]):
-    ...
+class DateTimeSField(SField[datetime.datetime]): ...
 
 
-class DateSField(SField[datetime.date]):
-    ...
+class DateSField(SField[datetime.date]): ...
 
 
-class TimeSField(SField[datetime.time]):
-    ...
+class TimeSField(SField[datetime.time]): ...

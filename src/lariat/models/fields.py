@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import decimal
 import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic
@@ -78,8 +79,7 @@ class Field(Generic[T], ABC):
         """
 
     @abstractmethod
-    def symbolic(self) -> sym.SField[T]:
-        ...
+    def symbolic(self) -> sym.SField[T]: ...
 
 
 class IntField(Field[int]):
@@ -133,6 +133,33 @@ class FloatField(Field[float]):
         return sym.FloatSField(self)
 
     def __get__(self, instance, owner=None) -> float | sym.FloatSField:
+        return super().__get__(instance, owner)
+
+
+class DecimalField(Field[decimal.Decimal]):
+    regex = re.compile("[^0-9.]")
+    context = decimal.Context(prec=16)
+
+    def to_python(self, value):
+        try:
+            return self.context.create_decimal(value)
+        except (TypeError, ValueError, decimal.InvalidOperation) as e:
+            # Try to convert lenient
+            if self.lenient:
+                try:
+                    value = self.regex.sub("", str(value))
+                    return self.context.create_decimal(value)
+                except (TypeError, ValueError, decimal.InvalidOperation):
+                    pass
+
+            if self.not_empty:
+                raise ConversionError(e)
+            return None
+
+    def symbolic(self):
+        return sym.DecimalSField(self)
+
+    def __get__(self, instance, owner=None) -> decimal.Decimal | sym.DecimalSField:
         return super().__get__(instance, owner)
 
 
