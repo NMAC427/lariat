@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class Field(Generic[T], ABC):
-    def __init__(self, name: str, not_empty=False, lenient=True, calc=False):
+    def __init__(self, name: str, *, not_empty=False, lenient=True, calc=False):
         """
         :param name: The name of the field in the FileMaker layout.
         :param not_empty: If the value can be None or not.
@@ -71,12 +71,20 @@ class Field(Generic[T], ABC):
         return f"<{type(self).__name__} '{self.name}'>"
 
     @abstractmethod
-    def to_python(self, value) -> T:
+    def to_python(self, value) -> T | None:
         """
         Convert the input value to the correct Python data type for this
         field. If this conversion fails, a lariat.exception.ConversionError
         should get raised.
         """
+
+    def to_filemaker(self, value: T | None) -> str:
+        """
+        Convert the Python value to a value that can be sent to FileMaker.
+        """
+        if value is None:
+            return None
+        return str(value)
 
     @abstractmethod
     def symbolic(self) -> sym.SField[T]: ...
@@ -177,16 +185,28 @@ class StringField(Field[str]):
 
 
 class BoolField(Field[bool]):
+    def __init__(
+        self, name: str, *, truthy: str | int = 1, falsy: str | int = 0, **kwargs
+    ):
+        super().__init__(name, **kwargs)
+        self.truthy = truthy
+        self.falsy = falsy
+
     def to_python(self, value):
-        if value in (True, False):
-            # 1/0 are equal to True/False. bool() converts former to latter.
-            return bool(value)
-        if value in ("t", "true", "True", "1", "yes"):
+        if value == self.truthy or value in (True, "t", "true", "True", "1", "yes"):
             return True
-        if value in ("f", "false", "False", "0", "no"):
+        if value == self.falsy or value in (False, "f", "false", "False", "0", "no"):
             return False
         if self.not_empty:
+            if self.lenient:
+                return False
             raise ConversionError(f"Couldn't convert value {value!r} to a boolean.")
+        return None
+
+    def to_filemaker(self, value: bool):
+        if value is None:
+            return None
+        return self.truthy if value else self.falsy
 
     def symbolic(self):
         return sym.BoolSField(self)
@@ -204,6 +224,11 @@ class DateTimeField(Field[datetime.datetime]):
             raise ConversionError(f"Couldn't convert {value} to a datetime.")
         return date
 
+    def to_filemaker(self, value: datetime.datetime):
+        if value is None:
+            return None
+        return value.strftime(self.PATTERN)
+
     def symbolic(self):
         return sym.DateTimeSField(self)
 
@@ -220,6 +245,11 @@ class DateField(Field[datetime.date]):
             raise ConversionError(f"Couldn't convert {value} to a date.")
         return date.date()
 
+    def to_filemaker(self, value: datetime.date):
+        if value is None:
+            return None
+        return value.strftime(self.PATTERN)
+
     def symbolic(self):
         return sym.DateSField(self)
 
@@ -234,7 +264,12 @@ class TimeField(Field[datetime.time]):
         time = datetime.datetime.strptime(value, self.PATTERN)
         if time is None and self.not_empty:
             raise ConversionError(f"Couldn't convert {value} to a time.")
-        return time
+        return time.time()
+
+    def to_filemaker(self, value: datetime.time):
+        if value is None:
+            return None
+        return value.strftime(self.PATTERN)
 
     def symbolic(self):
         return sym.TimeSField(self)

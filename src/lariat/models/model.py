@@ -175,7 +175,7 @@ class Model(metaclass=ModelBase):
 
     def _to_fm_dict(self):
         return {
-            field.name: getattr(self, field.attname)
+            field.name: field.to_filemaker(getattr(self, field.attname))
             for field in self._meta.fields
             if not field.calc
         }

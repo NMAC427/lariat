@@ -59,6 +59,9 @@ class FMQuery:
             optional=_c_script,
             field_names=True,
         ),
+        "-view": CommandDescription(
+            required={"-db", "-lay"},
+        ),
     }
 
     def __init__(self, command: str):
@@ -72,7 +75,6 @@ class FMQuery:
         self.params[name.lower()] = str(value)
 
     def add_field_param(self, name: str, value):
-        # TODO: Convert value from python type to correct filemaker api string
         self.field_params[name.lower()] = value
 
     def build_query(self):

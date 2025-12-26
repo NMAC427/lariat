@@ -56,14 +56,21 @@ class FMServer:
 
     def get_db_names(self) -> list[str]:
         query = FMQuery("-dbnames")
-        result = self.run_query(query)
-        return [record.get_field("database_name") for record in result]
+        records, _ = self.run_query(query)
+        return [record.get_field("database_name") for record in records]
 
     def get_layout_names(self, db: str) -> list[str]:
         query = FMQuery("-layoutnames")
         query.add_param("-db", db)
-        result = self.run_query(query)
-        return [record.get_field("layout_name") for record in result]
+        records, _ = self.run_query(query)
+        return [record.get_field("layout_name") for record in records]
+
+    def get_metadata(self, db: str, layout: str):
+        query = FMQuery("-view")
+        query.add_param("-db", db)
+        query.add_param("-lay", layout)
+        _, metadata = self.run_query(query)
+        return metadata
 
     # HELPERS
 
@@ -71,8 +78,9 @@ class FMServer:
         url = self._base_request_url + "?" + query.build_query()
         with self.httpx_client.stream("GET", url) as response:
             response.raise_for_status()
-            result, metadata = self.parser.parse(response.iter_raw())
-            return result
+            records, metadata = self.parser.parse(response.iter_raw())
+            return records, metadata
 
     def run_query_model(self, query: FMQuery, model: type[ModelT]) -> list[ModelT]:
-        return [model._from_fm_record(record) for record in self.run_query(query)]
+        records, _ = self.run_query(query)
+        return [model._from_fm_record(record) for record in records]

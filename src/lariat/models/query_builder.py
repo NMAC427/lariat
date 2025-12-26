@@ -76,7 +76,7 @@ class QueryBuilder(Generic[ModelT]):
         if filter_:
             for expr in self._filter:
                 field_name = expr.lhs.name
-                query.add_field_param(field_name, expr.rhs)
+                query.add_field_param(field_name, expr.lhs.to_filemaker(expr.rhs))
                 query.add_field_param(field_name + ".op", expr.op)
 
         # Sort
@@ -268,7 +268,7 @@ API Design
 QuerySet
     .filter(a, b)  # Condition: a & b
     .filter(x, y)  # Condition: a & b & c & d
-    
+
 QuerySet
     .include(a, b)  # Include:  a & b
     .include(x, y)  # Include:  a & b  +  x & y
