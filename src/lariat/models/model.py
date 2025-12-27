@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import itertools
 from typing import Type
 
 from lariat._typing import ModelT
@@ -103,15 +104,22 @@ class Model(metaclass=ModelBase):
                 setattr(self, name, value)
 
     def __repr__(self):
+        base_fields = [
+            f"record_id={self.record_id!r}",
+            f"mod_id={self.mod_id!r}",
+        ]
+
         fields = self._meta.fields + self._meta.list_fields
+        formatted_fields = (
+            f"{f.attname}={getattr(self, f.attname, None)!r}"
+            for f in fields
+            if not f.attname.startswith("__")
+        )
+
         return (
             self.__class__.__qualname__
             + "("
-            + ", ".join(
-                f"{f.attname}={getattr(self, f.attname, None)!r}"
-                for f in fields
-                if not f.attname.startswith("__")
-            )
+            + ", ".join(itertools.chain(base_fields, formatted_fields))
             + ")"
         )
 

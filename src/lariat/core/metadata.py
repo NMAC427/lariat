@@ -13,7 +13,9 @@ class FMFieldDefinition:
 
     max_repeating: int
     not_empty: int
-    result_type: str  # one of: 'text', 'number', 'date', 'time', 'timestamp' or 'container'
+    result_type: (
+        str  # one of: 'text', 'number', 'date', 'time', 'timestamp' or 'container'
+    )
     type: str  # one of: 'normal', 'calculation' or 'summary'
 
 

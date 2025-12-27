@@ -11,7 +11,7 @@ from lariat.core.query import FMQuery
 from lariat.core.server import FMServer
 from lariat.errors import FileMakerError
 from lariat.models.fields import Field
-from lariat.models.symbolic import FieldExpression, SortExpression
+from lariat.models.symbolic import FindOpExpression, RawFindExpression, SortExpression
 
 
 class QueryBuilder(Generic[ModelT]):
@@ -24,7 +24,7 @@ class QueryBuilder(Generic[ModelT]):
         self.model = model
 
         # Query Params
-        self._filter: list[FieldExpression] = []
+        self._filter: list[FindOpExpression | RawFindExpression] = []
         self._sort: list[SortExpression] = []
         self._max: int | None = None
         self._skip: int | None = None
@@ -75,9 +75,13 @@ class QueryBuilder(Generic[ModelT]):
         # Filter
         if filter_:
             for expr in self._filter:
-                field_name = expr.lhs.name
-                query.add_field_param(field_name, expr.lhs.to_filemaker(expr.rhs))
-                query.add_field_param(field_name + ".op", expr.op)
+                if isinstance(expr, RawFindExpression):
+                    field_name = expr.field.name
+                    query.add_field_param(field_name, expr.query)
+                elif isinstance(expr, FindOpExpression):
+                    field_name = expr.lhs.name
+                    query.add_field_param(field_name, expr.lhs.to_filemaker(expr.rhs))
+                    query.add_field_param(field_name + ".op", expr.op)
 
         # Sort
         if sort:
@@ -113,22 +117,22 @@ class QueryBuilder(Generic[ModelT]):
 
     # Chainable Operations
 
-    def filter(self, *args: FieldExpression) -> Self:
-        """documentation"""
+    def filter(self, *args: FindOpExpression | RawFindExpression) -> Self:
         c = self._clone()
 
         # Symbolic Expressions
         for expr in args:
-            if not isinstance(expr, FieldExpression):
+            if not isinstance(expr, (FindOpExpression, RawFindExpression)):
                 raise TypeError(
-                    "`filter` expected arguments of type FieldExpression, not"
-                    f" '{type(expr).__name__}'"
+                    f"`filter` expected arguments of type FindOpExpression or RawFindExpression, not '{type(expr).__name__}'"
                 )
 
             # Each field can only appear once per query filter
-            if expr.lhs in c._filtered_fields:
-                raise ValueError(f"Already specified a filter for {expr.lhs}")
-            c._filtered_fields.add(expr.lhs)
+            field = expr.lhs if isinstance(expr, FindOpExpression) else expr.field
+
+            if field in c._filtered_fields:
+                raise ValueError(f"Already specified a filter for {field}")
+            c._filtered_fields.add(field)
 
             c._filter.append(expr)
 
@@ -245,7 +249,7 @@ class QuerySet(Generic[ModelT]):
 
     # Chainable Operations
 
-    def filter(self, *args: FieldExpression) -> Self:
+    def filter(self, *args: FindOpExpression | RawFindExpression) -> Self:
         return self._with(self._q.filter(*args))
 
     def sort(self, *args: SortExpression) -> Self:

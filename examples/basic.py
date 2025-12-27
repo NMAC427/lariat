@@ -52,7 +52,7 @@ john_doe.save()
 adults = (
     Person.records()
         .filter(Person.age >= 18)
-        .sort(Person.name.ascending)
+        .sort(Person.name.ascend)
         .max(10)
         .all())
 
