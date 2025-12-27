@@ -44,7 +44,14 @@ class FMParser:
 
                 # Sort records by how common they are.
                 if tag == "record":
-                    records.append(self._parse_record(e, namespace_len))
+                    parent = e.getparent()
+                    if parent is not None and parent.tag[namespace_len:] == "resultset":
+                        records.append(self._parse_record(e, namespace_len))
+
+                        # Clear the element and its previous siblings to keep memory low
+                        e.clear()
+                        while e.getprevious() is not None:
+                            del e.getparent()[0]
                 elif tag == "metadata":
                     metadata = FMMetadata(namespace)
                     metadata.parse(e)
