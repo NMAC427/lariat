@@ -43,6 +43,11 @@ class FMQuery:
             optional=_c_layr | _c_script | _c_find,
             field_names=True,
         ),
+        "-findquery": CommandDescription(
+            required=_c_db_lay | {"-query"},
+            optional=_c_layr | _c_script | _c_find,
+            field_names=True,
+        ),
         "-findany": CommandDescription(
             required=_c_db_lay,
             optional=_c_layr | _c_script,
@@ -77,7 +82,7 @@ class FMQuery:
     def add_field_param(self, name: str, value):
         self.field_params[name.lower()] = value
 
-    def build_query(self):
+    def build_url_query(self):
         command = self.command
         command_desc = self._commands[command]
 

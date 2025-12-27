@@ -19,6 +19,7 @@ dev = [
     "black>=22.6.0",
     "pre-commit>=2.20.0",
     "isort>=5.10.1",
+    "inline-snapshot>=0.31.1",
 ]
 
 [build-system]

@@ -11,7 +11,13 @@ from lariat.core.query import FMQuery
 from lariat.core.server import FMServer
 from lariat.errors import FileMakerError
 from lariat.models.fields import Field
-from lariat.models.symbolic import FindOpExpression, RawFindExpression, SortExpression
+from lariat.models.query_compiler import QueryCompiler
+from lariat.models.symbolic import (
+    FindOpExpression,
+    Q,
+    RawFindExpression,
+    SortExpression,
+)
 
 
 class QueryBuilder(Generic[ModelT]):
@@ -45,6 +51,19 @@ class QueryBuilder(Generic[ModelT]):
 
     # Building
 
+    def _is_simple_and(self, q: Q) -> bool:
+        if q.negated:
+            return False
+        if q.connector != Q.AND:
+            return False
+        for child in q.children:
+            if isinstance(child, Q):
+                if not self._is_simple_and(child):
+                    return False
+            elif not isinstance(child, (FindOpExpression, RawFindExpression)):
+                return False
+        return True
+
     def build_query(
         self,
         command: str,
@@ -73,15 +92,39 @@ class QueryBuilder(Generic[ModelT]):
         query.add_param("-lay", layout)
 
         # Filter
-        if filter_:
-            for expr in self._filter:
-                if isinstance(expr, RawFindExpression):
-                    field_name = expr.field.name
-                    query.add_field_param(field_name, expr.query)
-                elif isinstance(expr, FindOpExpression):
-                    field_name = expr.lhs.name
-                    query.add_field_param(field_name, expr.lhs.to_filemaker(expr.rhs))
-                    query.add_field_param(field_name + ".op", expr.op)
+        if filter_ and self._filter:
+            root_q = Q(*self._filter, _connector=Q.AND)
+
+            if self._is_simple_and(root_q):
+                if query.command == "-findall":
+                    query.command = "-find"
+
+                def get_literals(q_obj):
+                    lits = []
+                    for c in q_obj.children:
+                        if isinstance(c, Q):
+                            lits.extend(get_literals(c))
+                        else:
+                            lits.append(c)
+                    return lits
+
+                for expr in get_literals(root_q):
+                    if isinstance(expr, RawFindExpression):
+                        field_name = expr.field.name
+                        query.add_field_param(field_name, expr.query)
+                    elif isinstance(expr, FindOpExpression):
+                        field_name = expr.lhs.name
+                        query.add_field_param(
+                            field_name, expr.lhs.to_filemaker(expr.rhs)
+                        )
+                        query.add_field_param(field_name + ".op", expr.op)
+            else:
+                query.command = "-findquery"
+                compiler = QueryCompiler(self.model)
+                query_str, params = compiler.compile(root_q)
+                query.add_param("-query", query_str)
+                for k, v in params.items():
+                    query.add_param(k, v)
 
         # Sort
         if sort:
@@ -117,22 +160,15 @@ class QueryBuilder(Generic[ModelT]):
 
     # Chainable Operations
 
-    def filter(self, *args: FindOpExpression | RawFindExpression) -> Self:
+    def filter(self, *args: Q | FindOpExpression | RawFindExpression) -> Self:
         c = self._clone()
 
         # Symbolic Expressions
         for expr in args:
-            if not isinstance(expr, (FindOpExpression, RawFindExpression)):
+            if not isinstance(expr, (Q, FindOpExpression, RawFindExpression)):
                 raise TypeError(
-                    f"`filter` expected arguments of type FindOpExpression or RawFindExpression, not '{type(expr).__name__}'"
+                    f"`filter` expected arguments of type Q, FindOpExpression or RawFindExpression, not '{type(expr).__name__}'"
                 )
-
-            # Each field can only appear once per query filter
-            field = expr.lhs if isinstance(expr, FindOpExpression) else expr.field
-
-            if field in c._filtered_fields:
-                raise ValueError(f"Already specified a filter for {field}")
-            c._filtered_fields.add(field)
 
             c._filter.append(expr)
 
@@ -249,7 +285,7 @@ class QuerySet(Generic[ModelT]):
 
     # Chainable Operations
 
-    def filter(self, *args: FindOpExpression | RawFindExpression) -> Self:
+    def filter(self, *args: Q | FindOpExpression | RawFindExpression) -> Self:
         return self._with(self._q.filter(*args))
 
     def sort(self, *args: SortExpression) -> Self:

@@ -70,6 +70,14 @@ class Field(Generic[T], ABC):
     def __repr__(self):
         return f"<{type(self).__name__} '{self.name}'>"
 
+    def __eq__(self, other):
+        if not isinstance(other, Field):
+            return False
+        return self.name == other.name and type(self) == type(other)
+
+    def __hash__(self):
+        return hash((self.name, type(self)))
+
     @abstractmethod
     def to_python(self, value) -> T | None:
         """

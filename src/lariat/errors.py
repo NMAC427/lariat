@@ -36,7 +36,7 @@ class FileMakerError(Exception):
 
     def __str__(self):
         if self.description is not None:
-            return f"Error code = {self.code}; {self.description}"
+            return f"{self.description} ({self.code})"
         else:
             return FileMakerError(
                 f"Error Code = {self.code}; For a list of error codes, visit:\n"

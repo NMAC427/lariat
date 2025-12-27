@@ -76,7 +76,7 @@ class FMServer:
     # HELPERS
 
     def run_query(self, query: FMQuery) -> tuple[list[FMRecord], FMMetadata]:
-        url = self._base_request_url + "?" + query.build_query()
+        url = self._base_request_url + "?" + query.build_url_query()
         with self.httpx_client.stream("GET", url) as response:
             response.raise_for_status()
             records, metadata = self.parser.parse(response.iter_raw())
