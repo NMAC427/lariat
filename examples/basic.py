@@ -59,3 +59,10 @@ adults = (
 print(adults)
 
 adults[0].delete()
+
+
+# Fetch a record by its id
+john_doe2 = (
+    Person.records()
+        .record_id(john_doe.record_id)
+        .first_or_none())

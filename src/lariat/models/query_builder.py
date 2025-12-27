@@ -186,6 +186,7 @@ class QuerySet(Generic[ModelT]):
     def __init__(self, model: type[ModelT]):
         self.model = model
         self._q = QueryBuilder(model)
+        self._additional = dict()
 
     def _with(self, q: QueryBuilder):
         c = copy.copy(self)
@@ -204,6 +205,9 @@ class QuerySet(Generic[ModelT]):
             skip=True,
             scripts=True,
         )
+
+        for k, v in self._additional.items():
+            query.add_param(k, v)
 
         server = FMServer.default
         try:
@@ -224,6 +228,9 @@ class QuerySet(Generic[ModelT]):
             skip=True,
             scripts=True,
         )
+
+        for k, v in self._additional.items():
+            query.add_param(k, v)
 
         server = FMServer.default
 
@@ -258,6 +265,12 @@ class QuerySet(Generic[ModelT]):
 
     def script_presort(self, name: str, param: str = None) -> Self:
         return self._with(self._q.script("presort", name, param))
+
+    def record_id(self, record_id: int) -> ModelT | None:
+        c = copy.copy(self)
+        c._additional = dict(self._additional)
+        c._additional["-recid"] = record_id
+        return c
 
     # TODO: Related Set
 

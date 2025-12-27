@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import httpx
 
 from lariat._typing import ModelT
+from lariat.core.metadata import FMMetadata
 from lariat.core.parser import FMParser, FMRecord
 from lariat.core.query import FMQuery
 
@@ -74,7 +75,7 @@ class FMServer:
 
     # HELPERS
 
-    def run_query(self, query: FMQuery) -> list[FMRecord]:
+    def run_query(self, query: FMQuery) -> tuple[list[FMRecord], FMMetadata]:
         url = self._base_request_url + "?" + query.build_query()
         with self.httpx_client.stream("GET", url) as response:
             response.raise_for_status()
